@@ -1,4 +1,18 @@
-# SRSv4媒体服务器PoC
+# 开源RTC方案调研
+
+## 基于WebRTC构建音视频系统
+
+WebRTC SDK提供了包括音视频的采集、编解码、网络传输、显示等功能。WebRTC不仅仅局限于PC的网页浏览器，Android，iOS平台上很多应用都支持接入，此外由于该项目是完全开源的，我们也可以通过编译C++代码，从而达到全平台的互通。
+
+WebRTC 客户端SDK架构图：
+
+![webrtc-arch.png](webrtc-arch.png)
+
+webrtc只关注协议和客户端实现，解决点对点的通信。在多终端接入的情况下，需要搭配媒体服务器和信令服务器，本次poc选择了个领域目前比较优秀的中间件SRS服务器，以及配套的信令与代理网关服务。
+
+![rtc.drawio.png](rtc.drawio.png)
+
+## 媒体服务器SRS
 
 SRS是一个高效的开源实时视频服务器，支持RTMP/WebRTC/HLS/HTTP-FLV/SRT/GB28181等多种协议。
 
@@ -8,7 +22,9 @@ SRS是一个高效的开源实时视频服务器，支持RTMP/WebRTC/HLS/HTTP-FL
 
 (图为SRS在今年来star数的增长趋势)
 
-## 从源码编译可执行文件
+## 服务端POC
+
+### 从源码编译可执行文件
 
 ```bash
 git clone -b 4.0release https://gitee.com/ossrs/srs.git
@@ -44,9 +60,9 @@ tail -n 30 -f ./objs/srs.log
 ffmpeg -re -i ./doc/source.flv -c copy -f flv rtmp://localhost/live/livestream
 ```
 
-## 服务部署
+### 服务部署
 
-## 安装docker
+#### 安装docker
 
 ```bash
 sudo apt-get remove docker docker-engine docker.io containerd runc
@@ -65,7 +81,7 @@ sudo apt-get update
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
 ```
 
-### 配置镜像和配置文件
+#### 配置镜像和配置文件
 
 拉取国内的加速镜像：
 
@@ -119,7 +135,7 @@ vhost __defaultVhost__ {
 
 ```
 
-### 关于Candidate
+#### 关于Candidate
 
 candidate就是服务器的候选地址，客户端可以连接的地址ip:port，在SDP交换中， 就有个candidate的信息，比如服务器回的answer可能是这样：
 
@@ -167,7 +183,7 @@ docker run --rm --env CANDIDATE=$CANDIDATE \
   objs/srs -c conf/rtc.conf
 ```
 
-### 信令服务器
+#### 信令服务器
 
 信令是实现音视频通信的重要一环，比如创建房间、离开房间、交换双端offer/answer以及candidate信息等。但WebRTC规范文档中并未定义信令相关的内容.
 
@@ -179,7 +195,7 @@ SRS自带了一个golang版本的信令服务器，可以在本地运行，也�
 docker run --rm -p 1989:1989 registry.cn-hangzhou.aliyuncs.com/ossrs/signaling:1
 ```
 
-### 代理网关服务器
+#### 代理网关服务器
 
 由于客户端与服务器之间的通信，有部分接口基于TCP，所以需要一个代理网关服务器来转发信令和媒体数据。
 
@@ -230,33 +246,133 @@ WebRTC推流，可以转成RTMP流播放，SRS只会对音频转码（Opus转AAC
 - HTTP-FLV播放：http://localhost:8080/live/show.flv
 - RTMP流（可用VLC播放）：rtmp://localhost/live/show
 
-### 安卓端app
+## 客户端开发
 
-项目提供了一个flutter版本的跨平台app demo，https://github.com/ossrs/flutter_live 
+### webrtc 客户端架构
 
-未提供发布版本，需要自行编译，编译问题记录：
+![webrtc-arch.png](webrtc-arch.png)
 
-安装andorid studio和相关SDK后，执行 flutter build apk ，编译器报错如下无明显问题原因提示
+从WebRTC架构图中可以了解到，它大体上可以分成四层：即接口层、Session层、核心引擎层和设备层。下面简要的介绍一下每一层的作用。
+
+接口层包括两部分，一是Web层接口；二是Native层接口。也就是说既可以使用浏览器开发音视频直播客户端，也可以使用Native(C++、Android、OC等)开发音视频直播客户端。
+
+Session层的主要作用是控制业务逻辑，如媒体协商、收集Candidate等，这些操作都是在Session层处理的；
+
+核心引擎层包括的内容比较多。大的方面，它包括音频引擎、视频引擎和网络传输层。音频引擎层包括NetEQ、音频编解码器（如OPUS、iLBC)、3A等。视频引擎包括JitterBuffer、视频编解码器（VP8/VP9/H264)等。网络传输层包括SRTP、网络I/O多路复用、P2P等。
+
+设备层主要与硬件打交道，它涉及的内容包括：在各终端设备上进行音频的采集与播放、视频的采集以及网络层等。
+
+从上面的描述中可以看到，在WebRTC架构的四层中，最复杂、最核心的是第三层，即引擎层.
+
+回声消除是在发送和接受的客户端都要进行处理的
+
+![a3a.png](a3a.png)
+
+WebRTC的AEC模块采用自适应滤波算法实现回声消除。该算法以输出到扬声器的音频数据为依据,根据现场的回声路径特征,模拟出回声信号。
+
+如果想要消除回声,必须将近端数据和远端数据之间的时间差控制在合理范围内。
+
+在Android应用开发中,使用AudioRecord进行音频采集,使用AudiorTrack进行远端音频播放。协调好这两个类的输入输出时间同步,是回声消除功能实现的重要保障。为了保证时间上的连续性和时间差,需要使用两个单独线程ReadThread和WriteThread来分别进行音频采集和音频播放。另外还有两个单独的线程InTrhead和OutThread来完成数据的接收和发送,还有一个线程AecThread完成回声消除操作。线程之间的数据交换使用队列来完成。
+
+### WebRTC js API和参数配置
+
+WebRTC在浏览器端使用通过html `<video>` 标签和 JavaScript sdk adapter.js调用：
+
+https://webrtc.github.io/adapter/adapter-latest.js
+
+要使用它，需要在JavaScript文件中加入一个模块：
+
+```js
+const adapter = require(‘webrtc-adapter’);
+```
+
+在初始化阶段调用 `navigator.mediaDevices.getDisplayMedia`时，需要传递类型 `MediaTrackSettings` 来配置媒体设备，主要影响效果的有如下选项：
 
 ```bash
-FAILURE: Build failed with an exception.
-
-* Where:
-Build file 'C:\Users\warde\StudioProjects\flutter_live\example\android\app\build.gradle' line: 25
-
-* What went wrong:
-A problem occurred evaluating project ':app'.
-> org/gradle/api/services/BuildService
-
-* Try:
-Run with --stacktrace option to get the stack trace. Run with --info or --debug option to get more log output. Run with --scan to get full insights.
-
-* Get more help at https://help.gradle.org
-
-BUILD FAILED in 10s
-Running Gradle task 'assembleRelease'...                           11.3s
-Gradle task assembleRelease failed with exit code 1
+音频约束参数
+volume 音量约束
+sampleRate: 采样率
+sampleSize: 采样大小，采样的位数
+echoCancellation: 回音消除
+autoGaincontrol： 自动增益控制（噪音大时候会导致音量变小）
+noiseSuppression: 降噪
+latency ： 延迟大小
+channelCount: 切换声道
+deviceID: 多个音频输入输出设备的进行切换
+groupId: 同一个物理设备，是一个分组，但是输入和输出的id不一样
 ```
+
+主要的逻辑调用方法：
+
+```js
+    var self = {};
+
+    // 参数配置参考 https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
+    self.constraints = {
+        audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100
+        },
+        video: {
+            width: {ideal: 320, max: 576}
+        }
+    };
+    self.pc = new RTCPeerConnection(null);
+    self.stream = new MediaStream();
+
+    var stream = await navigator.mediaDevices.getUserMedia(self.constraints);
+  
+    stream.getTracks().forEach(function (track) {
+        self.pc.addTrack(track);
+
+        // Notify about local track when stream is ok.
+        self.ontrack && self.ontrack({track: track});
+    });
+
+    // Notify about local track when stream is ok.
+    self.ontrack && self.ontrack({track: track});
+    self.close = function () {
+        self.pc && self.pc.close();
+        self.pc = null;
+    };
+    self.ontrack = function (event) {
+        // Add track to stream of SDK.
+        self.stream.addTrack(event.track);
+    };
+
+
+// startPlay函数调用时
+let video = ui.children('#rtc_media_player');
+let player = new SrsRtcPlayerAsync();
+video.show();
+video.prop('srcObject', player.stream);
+```
+
+#### WebRTC 中的回声测量
+
+WebRTC 有一个内置的软件控制的回声消除器。WebRTC 的回声消除器分析从扬声器播放的声音，并通过从麦克风捕获的声音中去除前一个成分来消除啸叫。
+
+涉及到的参数：
+
+```json
+ echoCancellation : true,
+ echoCancellationType : 'system',
+ noiseSuppression : false
+```
+
+echoCancellationType 是 WebRTC 提供的一个AEC选项，作为 getUserMedia 的约束引入，可以选择browser或system。（与浏览器支持有关，实测机上chrome102.0.5005.115中不生效，需要进一步确定用法）
+
+选择`浏览器`使用在 WebRTC 引擎 (libwebrtc) 中实现的 AEC
+选择`系统`使用 OS 提供的 AEC
+
+AEC的类型可以从getUserMedia获取的MediaStream的属性中确认。
+
+```js
+stream.getAudioTracks()[0].getSettings()
+```
+
+`chrome://webrtc-internals/` 可以检查在运行时实际使用了多少带宽
 
 ### 性能预估
 
@@ -322,7 +438,9 @@ SRS         950 publishers   ~92%x1   132MB     1     G5 2CPU
 Janus       350 publishers   ~93%x2   405MB     23    G5 2CPU
 ```
 
-一台G5（8核32G）服务器，单个SRS进程 能支持 1K 个推流流，或者 3-4K 个播放，可以使用多进程或docker方式增加容量，主要受限于带宽。
+#### 预估总结
+
+一台G5（8核32G）服务器，单个SRS进程 能支持 1K 个推流流(高清流)，或者 3-4K 个播放，可以使用多进程或docker方式增加容量，主要受限于带宽。
 
 SRS: WebRTC Casecade
 WebRTC的负载只在源站，而不存在边缘的负载均衡，因为WebRTC的推流和观看几乎是对等的，而不是直播这种一对万级别的不对等。换句话说，边缘是为了解决海量观看问题，而推流和观看差不多时就不需要边缘做负载均衡（直播可以用来做接入和跳转）。
@@ -341,31 +459,30 @@ https://github.com/ossrs/srs-bench/tree/feature/rtc#usage
 
 SRS的基准是并发流，比如使用srs-bench推流可以获得支持的最高推流（发布）并发，和最高拉流（播放）并发。压测工具一般读取文件，可以选择典型的业务场景，录制成样本文件，这样压测可以尽量模拟线上场景。
 
-## 客户端开发
+### 问题记录
 
-### webrtc 客户端架构
+项目提供了一个flutter版本的跨平台app demo，https://github.com/ossrs/flutter_live 
 
-![webrtc-arch.png](webrtc-arch.png)
+未提供发布版本，需要自行编译，编译问题记录：
 
-从WebRTC架构图中可以了解到，它大体上可以分成四层：即接口层、Session层、核心引擎层和设备层。下面简要的介绍一下每一层的作用。
+安装andorid studio和相关SDK后，执行 flutter build apk ，编译器报错如下无明显问题原因提示
 
-接口层包括两部分，一是Web层接口；二是Native层接口。也就是说既可以使用浏览器开发音视频直播客户端，也可以使用Native(C++、Android、OC等)开发音视频直播客户端。
+```bash
+FAILURE: Build failed with an exception.
 
-Session层的主要作用是控制业务逻辑，如媒体协商、收集Candidate等，这些操作都是在Session层处理的；
+* Where:
+Build file 'C:\Users\warde\StudioProjects\flutter_live\example\android\app\build.gradle' line: 25
 
-核心引擎层包括的内容比较多。大的方面，它包括音频引擎、视频引擎和网络传输层。音频引擎层包括NetEQ、音频编解码器（如OPUS、iLBC)、3A等。视频引擎包括JitterBuffer、视频编解码器（VP8/VP9/H264)等。网络传输层包括SRTP、网络I/O多路复用、P2P等。
+* What went wrong:
+A problem occurred evaluating project ':app'.
+> org/gradle/api/services/BuildService
 
-设备层主要与硬件打交道，它涉及的内容包括：在各终端设备上进行音频的采集与播放、视频的采集以及网络层等。
+* Try:
+Run with --stacktrace option to get the stack trace. Run with --info or --debug option to get more log output. Run with --scan to get full insights.
 
-从上面的描述中可以看到，在WebRTC架构的四层中，最复杂、最核心的是第三层，即引擎层.
+* Get more help at https://help.gradle.org
 
-回声消除是在发送和接受的客户端都要进行处理的
-
-![a3a.png](a3a.png)
-
-WebRTC的AEC模块采用自适应滤波算法实现回声消除。该算法以输出到扬声器的音频数据为依据,根据现场的回声路径特征,模拟出回声信号。
-
-如果想要消除回声,必须将近端数据和远端数据之间的时间差控制在合理范围内。
-
-在Android应用开发中,使用AudioRecord进行音频采集,使用AudiorTrack进行远端音频播放。协调好这两个类的输入输出时间同步,是回声消除功能实现的重要保障。为了保证时间上的连续性和时间差,需要使用两个单独线程ReadThread和WriteThread来分别进行音频采集和音频播放。另外还有两个单独的线程InTrhead和OutThread来完成数据的接收和发送,还有一个线程AecThread完成回声消除操作。线程之间的数据交换使用队列来完成。
-
+BUILD FAILED in 10s
+Running Gradle task 'assembleRelease'...                           11.3s
+Gradle task assembleRelease failed with exit code 1
+```

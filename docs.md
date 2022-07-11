@@ -33,6 +33,8 @@ https://mp.weixin.qq.com/s?__biz=MzA4NTQ3MzQ5OA==&mid=2649004518&idx=1&sn=c2ea8d
 web端集成demo
 https://github.com/ossrs/srs/blob/develop/trunk/research/players/js/srs.sdk.js
 
+https://github.com/ossrs/srs/tree/develop/trunk/3rdparty/signaling/www/demos
+
 # 信令服务 signaling
 https://mp.weixin.qq.com/s?__biz=MzA4NTQ3MzQ5OA==&mid=2649004531&idx=1&sn=c710d20de6c1e9e1e7fdb966546f4435&chksm=87c75846b0b0d1503f68469762bd422af4c19e18e0308022e95967a5a4252ea3ff1fb1a69daf&scene=21#wechat_redirect
 
