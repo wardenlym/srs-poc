@@ -46,3 +46,61 @@ https://blog.csdn.net/kyl282889543%2Farticle%2Fdetails%2F106816541
 https://blog.csdn.net/x277151676%2Farticle%2Fdetails%2F114583609
 https://juejin.cn/post/7009263889221156872
 
+https://www.jianshu.com/p/82e615aede15
+
+
+
+https://vivekc.xyz/getting-started-with-webrtc-part-4-de72b58ab31e
+
+
+
+Android Studio 引入AAR的方式
+千次阅读
+2022-03-07 14:23:12
+Gradle 7.0+ 设置aar路径
+
+aar放在app/libs下
+dependencies 增加
+
+方式一
+    implementation files('libs/libwebrtc.aar')
+
+方式二
+    implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+
+
+之前版本Gradle设置aar路径
+方式一
+repositories {
+    flatDir {
+        dirs 'libs'
+    }
+}
+implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+implementation(name: 'AarLib_V1.0.0', ext: 'aar')
+
+方式二
+
+    implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+
+https://support.huaweicloud.com/csdk-rtc/rtc_05_0003.html
+
+https://github.com/pchab/AndroidRTC
+
+https://github.com/CharonChui/AndroidNote/blob/master/VideoDevelopment/Android%20WebRTC%E7%AE%80%E4%BB%8B.md
+
+https://github.com/CharonChui/AndroidNote/blob/master/VideoDevelopment/Android%20WebRTC%E7%AE%80%E4%BB%8B.md
+
+https://vivekc.xyz/getting-started-with-webrtc-part-4-de72b58ab31e
+
+https://vivekc.xyz/peerconnection-getting-started-with-webrtc-part-2-e426b08d1028
+
+https://webrtc.mthli.com/
+
+https://www.cnblogs.com/yanwei-wang/p/12128223.html
+
+https://blog.csdn.net/qq_35054800/article/details/78647545
+
+https://download.csdn.net/download/qq_35054800/10135721
+
