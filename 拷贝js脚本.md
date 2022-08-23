@@ -20,4 +20,3 @@ channelCount: 切换声道
 deviceID: 多个音频输入输出设备的进行切换
 groupId: 同一个物理设备，是一个分组，但是输入和输出的id不一样
 
-z

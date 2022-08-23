@@ -491,14 +491,189 @@ public class MainActivity extends AppCompatActivity {
 
 上面的例子使用本地网络进行回环测试，这里的数据传输是内存共享, 而实际是通过网络发送SDP进行媒体描述交换。
 
-实际测试中，信令服务器是一个使用WebSocket进行通信的http服务，协议体内容为简单的json，接口描述如下：
 
-POST /rtc/v1/play/ application/json
+#### 拉流
+
+**拉流URL**
+
+`schema://domain:port/rtc/v1/play`
+
+```
+schema: http或者https
+method: POST
+content-type: json
+```
+
+**请求参数**
+
+
+```
 {
-    'type': 'answer', 
-    'sdp': 'session.sdp'
+  streamurl: 'webrtc://domain/app/stream',
+  sdp: string,  // offer sdp
+  clientip: string 
 }
+```
 
+
+
+**HTTP响应**
+
+```
+{
+  code: int,
+  msg:  string,
+  data: {
+    sdp:string,   // answer sdp 
+    sessionid:string // 该路下行的唯一id
+  }
+}
+```
+
+**HTTP响应code码**
+
+```
+200:  正常影响
+400:  请求不正确，URL 或者 参数不正确
+403:  鉴权失败
+404:  该流不存在
+500:  服务内部异常  
+```
+
+
+#### 停止拉流
+
+
+**停止拉流URL**
+
+`schema://domain:port/rtc/v1/unplay`
+
+```
+schema: http或者https
+method: POST
+content-type: json
+```
+
+
+**请求参数**
+
+
+```
+{
+  code:int,
+  msg:string,
+  data:{
+    streamurl: 'webrtc://domain/app/stream',
+    sessionid:string // 拉流时返回的唯一id
+  }
+}
+```
+
+**HTTP响应code码**
+
+```
+200:  正常影响
+400:  请求不正确，URL 或者 参数不正确
+403:  鉴权失败
+404:  该流不存在
+500:  服务内部异常  
+```
+
+#### 推流
+
+**推流URL**
+
+`schema://domain:port/rtc/v1/publish`
+
+```
+schema: http或者https
+method: POST
+content-type: json
+```
+
+
+**请求参数**
+
+
+```
+{
+  streamurl: 'webrtc://domain/app/stream',
+  sdp: string,  // offer sdp
+  clientip: string // 
+}
+```
+
+
+**HTTP响应**
+
+```
+{
+  code:int,
+  msg:string,
+  data:{
+    sdp:string,   // answer sdp 
+    sessionid:string // 该路推流的唯一id
+  }
+}
+```
+
+
+**HTTP响应code 码**
+
+
+```
+200:  正常影响
+400:  请求不正确，URL 或者 参数不正确
+403:  鉴权失败
+409:  该流已经存在  
+```
+
+
+
+
+#### 停止推流
+
+
+**停止推流URL**
+
+`schema://domain:port/rtc/v1/unpublish`
+
+```
+schema: http或者https
+method: POST
+content-type: json
+```
+
+
+**请求参数**
+
+
+```
+{
+  streamurl: 'webrtc://domain/app/stream',
+  sessionid:string // 推流时返回的唯一id
+}
+```
+
+
+**HTTP响应**
+
+```
+{
+  code:int,
+  msg:string
+}
+```
+
+**HTTP响应code码**
+
+```
+200:  正常影响
+400:  请求不正确，URL 或者 参数不正确
+403:  鉴权失败
+404:  该流不存在
+500:  服务内部异常  
+```
 
 ## 参考资料
 
@@ -506,3 +681,7 @@ W3C WebRTC 1.0
 https://www.w3.org/TR/webrtc/
 https://webrtc.org/getting-started/overview
 https://w3c.github.io/webrtc-stats/
+https://chromium.googlesource.com/external/webrtc/+/master/sdk/android/api/org/webrtc
+https://codelabs.developers.google.com/codelabs/webrtc-web
+https://www.audiocodes.com/media/13259/webrtc-android-client-sdk-api-reference-guide.pdf
+https://github.com/IhorKlimov/Android-WebRtc
